@@ -31,6 +31,18 @@
 
 #include "wrc_ptp.h"
 
+// For PLL PI bucle counter
+//
+#include <errno.h>
+#include <string.h>
+#include <stdlib.h>
+#include <wrc.h>
+
+#include "shell.h"
+#include "util.h"
+#include "wrc_ptp.h"
+#include "pps_gen.h"
+
 int wrc_ui_mode = UI_SHELL_MODE;
 int wrc_ui_refperiod = TICS_PER_SECOND; /* 1 sec */
 int wrc_phase_tracking = 1;
@@ -227,6 +239,13 @@ static void check_reset(void) {}
 
 int main(void)
 {
+	// PLL PI bucle counters
+	//uint32_t *cycles_ini = 0x30000;
+	uint64_t sec, sec2;
+	uint32_t nsec, nsec2;
+	uint32_t nsec_for, nsec2_for, nsec_spll;
+	
+	// Standard main header
 	check_reset();
 	wrc_ui_mode = UI_SHELL_MODE;
 	_endram = ENDRAM_MAGIC;
@@ -268,8 +287,20 @@ int main(void)
 		}
 
 		ui_update();
+		shw_pps_gen_get_time(&sec, &nsec);
 		wrc_ptp_update();
+		shw_pps_gen_get_time(&sec2, &nsec2);
 		spll_update_aux_clocks();
+		shw_pps_gen_get_time(&sec, &nsec_spll);
+		
 		check_stack();
+		
+		shw_pps_gen_get_time(&sec, &nsec2_for);
+		//mprintf("\nwhole for(;;) nsecs:  \t\t\t\t\t%d", nsec2_for-nsec_for);
+		//mprintf("\nwrc_ptp_update() nsecs:  \t\t%d \t(%d%% CPU)", nsec2-nsec, ((nsec2-nsec)*100)/(nsec2_for-nsec_for) );
+		//mprintf("\nspll_update_aux_clocks() nsecs:  \t%d \t(%d%% CPU)", nsec_spll - nsec2, ((nsec_spll-nsec2)*100)/(nsec2_for-nsec_for) );
+		mprintf("\nState: %d: ptp --> %dns (%d%% CPU) // spll --> %dns (%d%% CPU)",wrc_ptp_get_mode(), nsec2-nsec, ((nsec2-nsec)*100)/(nsec2_for-nsec_for), 
+						nsec_spll - nsec2, ((nsec_spll-nsec2)*100)/(nsec2_for-nsec_for)  );
+		//mprintf("\nwrc_ptp_update() takes nsecs from the for(;;):  \t%d", (nsec2_for-nsec_for)-(nsec2-nsec));
 	}
 }
